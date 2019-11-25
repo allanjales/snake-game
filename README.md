@@ -1,7 +1,7 @@
 # Snake Game
 > Classic Snake Game with I.A. option
 
-## How can i run?
+## How can I run it?
 Made in Javascript you just need to download and open in your browser.
 
 ## How do I play?
