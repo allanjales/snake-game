@@ -1,0 +1,665 @@
+﻿<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Snake Game</title>
+<meta name="author" content="Allan Jales">
+<meta name="theme-color" content="#ffffff">
+
+<style>
+html{
+    height: 100%;
+}
+
+body{
+    margin: 0;
+    background-image: linear-gradient(to top, rgb(209, 213, 219) 50%, rgba(255,255,255,0) 100%);
+}
+
+#canvas{
+    margin: auto;
+    display: block;
+    border-width: 4px;
+    border-color: #A5A5A5;
+    border-style: inset;
+}
+
+#game{
+    margin: auto;
+    width: 500px;
+    height: 800px;
+    background-color: #AEAEAE;
+    border-radius: 32px;
+    padding: 10px;
+    margin-top: 32px;
+    border-width: 0px;
+    border-color: #AAAAAA;
+    border-style: outset;
+	box-shadow: 5px 5px 20px 10px rgba(0,0,0,0.1), inset -2px -2px 4px rgba(0,0,0,0.1), inset 2px 2px 4px rgba(255,255,255,0.2);
+}
+
+#title{
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.pontuacao{
+    background-color: #fff;
+    border-width: 2px;
+    border-color: #AAAAAA;
+    border-style: inset;
+    width: max-content;
+    margin: auto;
+    margin-bottom: 20px;
+    padding: 10px;
+    cursor: default;
+	box-shadow: inset 5px 5px 10px rgba(0,0,0,0.1);
+    }
+
+.pontuacao p{
+    display: inline;
+}
+
+#creditos{
+    text-align: center;
+}
+
+.texto{
+    font-family: Gotham, "Helvetica Neue", Helvetica, Arial, "sans-serif";
+    cursor: default;
+}
+
+#maior_pontuacao{
+    visibility: hidden;
+    border: none;
+}
+
+.botao{
+    position: relative;
+    left: 75%;
+    height: 80px;
+    width: 80px;
+    background-color: #DD0000;
+    border-radius: 50%;
+    cursor: pointer;
+	box-shadow: 2px 2px 10px 2px rgba(0,0,0,0.1), inset -10px -10px 10px rgba(0,0,0,0.1), inset 10px 10px 10px rgba(255,255,255,0.2);
+}
+
+#botao-menor{
+	width: 10px;
+	height: 10px;
+	left: calc(75% + 70px);
+	background-color: #888888;
+	box-shadow: 2px 2px 10px 2px rgba(0,0,0,0.1), inset -2px -2px 10px rgba(0,0,0,0.1);
+}
+
+.botao .botao{
+    position: relative;
+    left: 65%;
+    top: 15%;
+    height: 20%;
+    width: 20%;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    cursor: inherit;
+    box-shadow: none;
+}
+
+.botao .texto {
+    text-align: center;
+    color: #ffffff;
+    font-size: 20px;
+    vertical-align: middle;
+    cursor: inherit;
+    margin-top: 12px;
+}
+
+#screen{
+    position: relative;
+    width: max-content;
+    margin: auto;
+    box-sizing: border-box;
+}
+
+.shadow{
+    position: absolute;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+    top: 0;
+	box-shadow: inset 12px 12px 10px rgba(0,0,0,0.1);
+	margin: 4px;
+}
+
+</style>
+</head>
+<body>
+    <div id="game">
+        <h1 id="title" class="texto">Snake Game</h1>
+        <div class="pontuacao">
+            <div>
+                <p class="texto">Pontuação:</p>
+                <p id="score" class="texto">0</p>
+            </div>
+        </div>
+		<div id="screen">
+			<canvas id="canvas" width="400px" height="400px"  style="margin: none;"></canvas>
+			<div class="shadow"></div>
+		</div>
+        <p id="creditos" class="texto">Feito por Allan Jales</p>
+        <div id="maior_pontuacao" class="pontuacao">
+            <p class="texto">Maior pontuação:</p>
+            <p id="best_score" class="texto">0</p>
+        </div>
+        <div class="botao" onClick="toggleIAButton(this)" title="Inteligência Artificial">
+            <div class="botao"></div>
+			<div class="texto">IA</div>
+        </div>
+        <div id="botao-menor" class="botao" onClick="debugButton(this)" title="Debug na inteligência artificial">
+            <div class="botao"></div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+const fps = 30;													//Quantidade de quadros por segundo do jogo [Hz]
+const gamespeed = 10;											//Quantidade de vezes por segundo que ele analisa o input [Hz]
+const celulas = 20;												//Quantidade de células no jogo em um eixo
+var best_score = 0;												//Melhor pontuação
+
+var direcao;													//Direção da cobra: 0 = esquerda, 1 = cima, 2 = direita, 3 = baixo
+var snake;														//Arrays responsáveis pela posição de cada quadrado da cobra
+var tamanho;													//Tamanho inicial da cobra
+var score;														//Pontuação do jogador
+var comida_x, comida_y;											//Posição inicial x e y da comida
+var ultima_direcao;												//Variável para evitar bugs de teclas num intervalo muito curto de tempo
+const grid = document.getElementById("canvas").width/celulas;	//Quantidade de pixels nas células da grade
+
+var ia = false;		//ativa ou desativa a inteligência artifical
+var debug = false;	//ativa ou desativa a visualização do wavefront
+var matrix;			//Matriz para o algoritmo de wavefront	
+var menor;			//O menor valor encontrado na matriz acima de 0
+
+//Função de debug
+function toggleIAButton(button)
+{
+	//Ativa ou desativa a ia
+	ia = (ia) ? false : true
+	
+	//Chama a função da luz
+	luzIndicadora();
+}
+//Função de debug
+function debugButton(button)
+{
+	//Ativa ou desativa o debug
+	debug = (debug) ? false : true;
+	
+	//Chama a função da luz
+	luzIndicadora();
+}
+
+//Função que vai dizer o que acontece com a luz
+function luzIndicadora()
+{
+	//Seleciona a luz
+	luz = document.getElementById("botao-menor")
+	
+	//Ativa a luzinha indicadora de IA
+	if (ia == true)
+	{
+		if (debug == true)
+		{
+			luz.style.backgroundColor = "#6666FF";
+			luz.style.boxShadow = "inset 0px 0px 5px #0000DD, 0px 0px 10px 4px rgba(0,0,221,0.2)";
+		}
+		else
+		{
+			luz.style.backgroundColor = "#FF6666";
+			luz.style.boxShadow = "inset 0px 0px 5px #DD0000, 0px 0px 10px 4px rgba(221,0,0,0.2)";
+		}
+	}	
+	else
+	{
+		luz.style.backgroundColor = "#888888";
+		luz.style.boxShadow = "2px 2px 10px 2px rgba(0,0,0,0.1), inset -2px -2px 10px rgba(0,0,0,0.1)";
+	}
+}
+
+//Funções das teclas
+const acceptedMoves = 
+{
+	ArrowUp()
+	{
+		return moveDirection(1);
+	},
+	ArrowDown()
+	{
+		return moveDirection(3);
+	},
+	ArrowLeft()
+	{
+		return moveDirection(0);
+	},
+	ArrowRight()
+	{
+		return moveDirection(2);
+	}
+}
+
+//Função que lida com as teclas apertadas
+function handleKeydown(event)
+{
+	//Seleciona a tecla de movimento
+	const moveFunction = acceptedMoves[event.key]
+	
+	//Se o movimento for aceito
+	if (moveFunction)
+	{
+		//Trata como um função
+		moveFunction();
+	}
+}
+
+//Função de direção
+function moveDirection(newDirection)
+{
+	//Se os dois não forem pares ou ímpares ao mesmo tempo
+	if (Math.abs(ultima_direcao%2) != Math.abs(newDirection%2))
+	{
+		//Muda a direção
+		direcao = newDirection;
+		
+		//Log
+		/*
+		switch(direcao)
+		{
+			case 0:
+				console.log('Comand: Left');
+				break;
+			case 1:
+				console.log('Comand: Up');
+				break;
+			case 2:
+				console.log('Comand: Right');
+				break;
+			case 3:
+				console.log('Comand: Down');
+				break;
+		}
+		*/
+		
+		//Diz que virou
+		return true;
+	}
+	
+	return false;
+}
+
+//Ao carregar a página
+window.onload = function()
+{
+	//Quando apertar uma tecla, realiza a função
+	document.addEventListener("keydown", handleKeydown);
+    
+    //Inicia o jogo
+    iniciarJogo();
+	
+	//Chama as funções tantas vezes por segundo (funcao, milisegundo)
+	setInterval(draw, 1000/fps);
+	setInterval(step, 1000/gamespeed);
+}
+
+function iniciarJogo()
+{
+	direcao = 0;	//Direção da cobra: 0 = esquerda, 1 = cima, 2 = direita, 3 = baixo
+    tamanho = 3;    //Tamanho da cobra
+    score = 0;      //Pontuação inicial
+    snake = [];     //Exclui o corpo da cobra
+    
+	//Posiciona a cobra no centro automaticamente
+    x = canvas.width/grid/2;
+    y = canvas.height/grid/2;
+	
+	//Faz a comida respawnar em algum lugar
+	respawn_comida();
+    
+    //Atualiza contador
+    atualizarContador();
+	
+	//Log
+	console.log('Game: start');
+}
+
+//Wavefront
+function wavefront()
+{
+	//Define a matriz é um array
+	matrix = [];
+	
+	//Passa por cada célula horizontal
+	for (var i = 0; i < grid; i++)
+    {
+		//Define que o array também é um array
+		matrix[i] = [];
+		
+		//Passa por cada célula vertical
+		for (var j = 0; j < grid; j++)
+		{
+			//Define como 0
+			matrix[i][j] = 0;
+		}
+	}
+	
+	//Dá calor a comida
+	matrix[comida_x][comida_y] = Math.round(grid*grid);
+
+	//Marca a posição do corpo da cobra
+	for (var i = 0; i < snake.length; i++)
+	{
+		//Marca as posições que ela ocupa com -1
+		matrix[snake[i].x][snake[i].y] = -1;
+	}
+	
+	//Menor valor encontrado na matriz acima de 0
+	menor = matrix[comida_x][comida_y];
+
+	//Faz o mapa de calor do resto (verifica as adjacencias)
+	while (verificarAdjacencias())
+	{
+		//Nada!
+	}
+	
+	//console.log(menor)
+	
+	//Subtitui todo mundo pela diferença com o menor valor
+	for (var i = 0; i < grid; i++)
+	{
+		for (var j = 0; j < grid; j++)
+		{
+			if (matrix[i][j] >= menor)
+			{
+				matrix[i][j] = matrix[i][j] - menor;
+			}
+		}
+	}
+}
+
+//Verificar adjacencias para o wavefron
+function verificarAdjacencias()
+{
+	//Matriz antes
+	antes = JSON.stringify(matrix);
+
+	//Passa por cada célula horizontal
+	for (var i = 0; i < grid; i++)
+	{
+		//Passa por cada célula vertical
+		for (var j = 0; j < grid; j++)
+		{
+			//Se a célula não for parte da cobra
+			if (matrix[i][j] >= 0)
+			{
+				//Se nas adjacencias tem alguma célula mais quente
+				if (i < grid - 1 && matrix[i+1][j] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i+1][j] - 1;
+				}
+
+				if (j < grid - 1 && matrix[i][j+1] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i][j+1] - 1;
+				}
+
+				if (i > 0 && matrix[i-1][j] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i-1][j] - 1;
+				}
+
+				if (j > 0 && matrix[i][j-1] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i][j-1] - 1;
+				}
+
+				//Verifica do outro lado também
+				if (i == grid - 1 && matrix[0][j] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[0][j] - 1;
+				}
+
+				if (j == grid - 1 && matrix[i][0] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i][0] - 1;
+				}
+
+				if (i == 0 && matrix[grid - 1][j] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[grid - 1][j] - 1;
+				}
+
+				if (j == 0 && matrix[i][grid - 1] > matrix[i][j])
+				{
+					matrix[i][j] = matrix[i][grid - 1] - 1;
+				}
+				
+				//Se for o menor valor encontrado
+				if (menor > matrix[i][j] && matrix[i][j] > 0)
+				{
+					//Define como este sendo o menor valor
+					menor = matrix[i][j];
+				}
+			}
+		}
+	}
+	
+	//Retorna true se modificou alguma coisa e false se não
+	if (antes == JSON.stringify(matrix))
+	{
+		return false
+	}
+	else
+	{	
+		//Se modificou, reseta o menor valor
+		menor = matrix[comida_x][comida_y];
+		
+		return true
+	}
+}
+
+//Função da inteligência artificial
+function aiDecision()
+{
+	//Faz um mapa de calor do ambiente para a maçã
+	wavefront();
+	
+	//Verifica qual lado tem menos calor ao redor da cobra
+	
+	//Define lados como array
+	lados = [];
+	
+	//Assimila os lados
+	if (x > 0) {lados[0] = matrix[x-1][y]} else {lados[0] = matrix[grid - 1][y]}
+	if (y > 0) {lados[1] = matrix[x][y-1]} else {lados[1] = matrix[x][grid - 1]}
+	if (x < grid - 1) {lados[2] = matrix[x+1][y]} else {lados[2] = matrix[0][y]}
+	if (y < grid - 1) {lados[3] = matrix[x][y+1]} else {lados[3] = matrix[x][0]}
+	
+	//Log dos lados atuais
+	//console.log(lados)
+	
+	//Direção padrão
+	escolhido = 0;
+	
+	//Procura a direção com o maior valor
+	for (var i = 0; i < lados.length; i++)
+	{
+		//Se o maior valor for outra direção
+		if (lados[i] > lados[escolhido])
+		{
+			//Muda a direção escolhida
+			escolhido = i;
+		}
+	}
+	
+	//Variável da tecla a ser pressionada
+	var key;
+	
+	//De acordo com o lado escolhido, envia o comando
+	if (escolhido == 0) {key = 'ArrowLeft'}
+	if (escolhido == 1) {key = 'ArrowUp'}
+	if (escolhido == 2) {key = 'ArrowRight'}
+	if (escolhido == 3) {key = 'ArrowDown'}
+	
+	//Envia o comando
+	if (acceptedMoves[key]())
+	{
+		//Log da tecla pressionada
+		console.log("Pressed: " + key)
+	}
+}
+
+//Função step de jogo
+function step()
+{
+	//Faz a movimentação da cobra
+	if (direcao == 0 || direcao == 2) {x += (direcao-1)}
+	else 
+	if (direcao == 1 || direcao == 3) {y += (direcao-2)}
+	
+	//Variável para evitar bugs
+	ultima_direcao = direcao;
+	
+	//Teleporta a cobra pro outro lado do cenário quando sair dele
+	if (x < 0) {x = canvas.width/grid-1;}
+	if (x > canvas.width/grid-1) {x = 0;}
+	if (y < 0) {y = canvas.height/grid-1;}
+	if (y > canvas.height/grid-1) {y = 0;}
+	
+	//Log posição
+	//console.log([x,y]);
+	
+	//Limita o tamanho da cobra excluindo sempre o último array
+	while (snake.length > tamanho-1) {snake.shift();}
+	
+	//Passa por cada pedaço da cobra
+	for (var i = 0; i < snake.length; i++)
+    {
+        //Se se encostou
+        if (x == snake[i].x && y == snake[i].y)
+        {
+			//Log
+			//console.log('Game: end');
+			
+            //Atualiza o score máximo
+            if (best_score < score)
+            {
+                best_score = score;
+            }
+            
+            //Reinicia jogo
+            iniciarJogo();
+        }
+    }
+	
+	//Insere as coordenadas de um dos quadrados dentro da variável snake em primeiro na array
+	snake.push({x: x, y: y})
+	
+	//Se pegar a comida
+	if (x == comida_x && y == comida_y)
+    {
+        score++;				//Aumenta o score
+        atualizarContador();	//Atualiza contador
+        tamanho++;				//Aumenta o tamanho da cobra
+        respawn_comida();		//Respawna
+		console.log('Game: apple eaten | size '.concat(tamanho));
+	}
+	
+	//Se a IA estiver ativada
+	if (ia)
+	{
+		//Faz ela escolher uma ação
+		aiDecision();
+	}
+}
+
+//Função draw de jogo
+function draw()
+{
+	//Cria a área de desenho 2D
+	canvas = document.getElementById("canvas");
+	ctx = canvas.getContext('2d');
+	
+    //Desenha um retângulo opaco do tamanho do canvas de fundo
+    ctx.fillStyle = "#8a9f58";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+	
+	//Desenha os quadrados da cobra
+	ctx.fillStyle = "#1b1f12";
+	for (var i = 0; i < snake.length; i++)
+    {
+        ctx.fillRect(snake[i].x*grid, snake[i].y*grid, grid-1, grid-1)
+    }
+
+	//Desenha a comida
+	ctx.fillStyle = "#f1130b"
+	ctx.fillRect(comida_x*grid, comida_y*grid, grid-1, grid-1)
+	
+	//Se tá definido a matriz
+	if (matrix && ia && debug)
+	{
+		//Wavefront algorithm
+		ctx.font = "10px Arial";
+		ctx.textAlign = "center";
+		ctx.fillStyle = "#ffffff";
+		
+		//console.log(Math.max.apply(Math, matrix));
+	
+		//Passa por cada célula horizontal
+		for (var i = 0; i < matrix.length; i++)
+		{
+			//Passa por cada célula vertical
+			for (var j = 0; j < matrix[i].length; j++)
+			{
+				//Define cores
+				ctx.fillStyle = "#ff" + Math.round(matrix[i][j]/matrix[comida_x][comida_y]*255).toString(16).padStart(2,0) + Math.round(matrix[i][j]/matrix[comida_x][comida_y]*255).toString(16).padStart(2,0);
+				
+				//Exibe quantidade
+				ctx.fillText(matrix[i][j], i*grid + grid/2 - 1, (j + 1)*grid - grid/4 - 2);
+			}
+		}
+	}
+}
+
+//Faz a comida respwanar em algum lugar
+function respawn_comida()
+{
+	comida_x = Math.floor(Math.random()*canvas.width/grid);
+	comida_y = Math.floor(Math.random()*canvas.height/grid);
+	
+	//Passa por cada pedaço da cobra
+	for (var i = 0; i < snake.length; i++)
+    {
+        //Se spawnou na cobra
+        if (comida_x == snake[i].x && comida_y == snake[i].y)
+        {
+			//Spawna comida em outro lugar
+			respawn_comida();
+			break;
+        }
+    }
+}
+    
+function atualizarContador()
+{
+    //Atualiza Score
+    document.getElementById("score").innerHTML = score;
+    
+    //Atualiza o melhor score
+    document.getElementById("best_score").innerHTML = best_score;
+    
+    //Exibe o maior score
+    if (best_score > 0)
+    {
+        document.getElementById("maior_pontuacao").style.visibility = "visible";
+    }
+}
+</script>
