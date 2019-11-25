@@ -163,9 +163,11 @@ body{
 
 <script>
 const fps = 30;													//Quantidade de quadros por segundo do jogo [Hz]
-const gamespeed = 10;											//Quantidade de vezes por segundo que ele analisa o input [Hz]
 const celulas = 20;												//Quantidade de células no jogo em um eixo
+var gamespeed = 10;												//Quantidade de vezes por segundo que ele analisa o input [Hz]
 var best_score = 0;												//Melhor pontuação
+var ia = false;													//ativa ou desativa a inteligência artifical
+var debug = false;												//ativa ou desativa a visualização do wavefront algorithm
 
 var direcao;													//Direção da cobra: 0 = esquerda, 1 = cima, 2 = direita, 3 = baixo
 var snake;														//Arrays responsáveis pela posição de cada quadrado da cobra
@@ -173,12 +175,22 @@ var tamanho;													//Tamanho inicial da cobra
 var score;														//Pontuação do jogador
 var comida_x, comida_y;											//Posição inicial x e y da comida
 var ultima_direcao;												//Variável para evitar bugs de teclas num intervalo muito curto de tempo
+var matrix;														//Matriz para o algoritmo de wavefront	
+var menor;														//O menor valor encontrado na matriz acima de 0
+var game;														//Objeto que carregará o intervalo do gamespeed
 const grid = document.getElementById("canvas").width/celulas;	//Quantidade de pixels nas células da grade
 
-var ia = false;		//ativa ou desativa a inteligência artifical
-var debug = false;	//ativa ou desativa a visualização do wavefront
-var matrix;			//Matriz para o algoritmo de wavefront	
-var menor;			//O menor valor encontrado na matriz acima de 0
+//Objeto para controlar quais logs são exibidos
+var log = {
+	gameStart: true,
+	gameEnd: true,
+	appleEaten: true,
+	Comands: false,
+	minWavefront: false,
+	sidesHeat: false,
+	iapressedKey: false,
+	currentPosition: false,
+}
 
 //Função de debug
 function toggleIAButton(button)
@@ -226,6 +238,36 @@ function luzIndicadora()
 	}
 }
 
+//Muda a velocidade do jogo
+function setGameSpeed(newSpeed)
+{
+	//Change the variable
+	gamespeed = (newSpeed > 0) ? newSpeed : 0;
+	
+	//Limpa o intervalo anterior
+	clearInterval(game);
+	
+	//Change the interval
+	if (gamespeed > 0)
+		game = setInterval(step, 1000/gamespeed);
+		
+	return gamespeed;
+}
+
+//Função que lida com as teclas apertadas
+function handleKeydown(event)
+{
+	//Seleciona a tecla de movimento
+	const moveFunction = acceptedMoves[event.key]
+	
+	//Se o movimento for aceito
+	if (moveFunction)
+	{
+		//Trata como um função
+		moveFunction();
+	}
+}
+
 //Funções das teclas
 const acceptedMoves = 
 {
@@ -247,20 +289,6 @@ const acceptedMoves =
 	}
 }
 
-//Função que lida com as teclas apertadas
-function handleKeydown(event)
-{
-	//Seleciona a tecla de movimento
-	const moveFunction = acceptedMoves[event.key]
-	
-	//Se o movimento for aceito
-	if (moveFunction)
-	{
-		//Trata como um função
-		moveFunction();
-	}
-}
-
 //Função de direção
 function moveDirection(newDirection)
 {
@@ -271,23 +299,22 @@ function moveDirection(newDirection)
 		direcao = newDirection;
 		
 		//Log
-		/*
-		switch(direcao)
-		{
-			case 0:
-				console.log('Comand: Left');
-				break;
-			case 1:
-				console.log('Comand: Up');
-				break;
-			case 2:
-				console.log('Comand: Right');
-				break;
-			case 3:
-				console.log('Comand: Down');
-				break;
-		}
-		*/
+		if (log['Comands'])
+			switch(direcao)
+			{
+				case 0:
+					console.log('Comand: Left');
+					break;
+				case 1:
+					console.log('Comand: Up');
+					break;
+				case 2:
+					console.log('Comand: Right');
+					break;
+				case 3:
+					console.log('Comand: Down');
+					break;
+			}
 		
 		//Diz que virou
 		return true;
@@ -307,7 +334,7 @@ window.onload = function()
 	
 	//Chama as funções tantas vezes por segundo (funcao, milisegundo)
 	setInterval(draw, 1000/fps);
-	setInterval(step, 1000/gamespeed);
+	game = setInterval(step, 1000/gamespeed);
 }
 
 function iniciarJogo()
@@ -328,7 +355,8 @@ function iniciarJogo()
     atualizarContador();
 	
 	//Log
-	console.log('Game: start');
+	if (log['gameStart'])
+		console.log('Game: start');
 }
 
 //Wavefront
@@ -353,16 +381,15 @@ function wavefront()
 	
 	//Dá calor a comida
 	matrix[comida_x][comida_y] = Math.round(grid*grid);
+	
+	//Menor valor encontrado na matriz acima de 0 inicialmente é o da comida
+	menor = matrix[comida_x][comida_y];
 
-	//Marca a posição do corpo da cobra
+	//Marca a posição do corpo da cobra com -1
 	for (var i = 0; i < snake.length; i++)
 	{
-		//Marca as posições que ela ocupa com -1
 		matrix[snake[i].x][snake[i].y] = -1;
 	}
-	
-	//Menor valor encontrado na matriz acima de 0
-	menor = matrix[comida_x][comida_y];
 
 	//Faz o mapa de calor do resto (verifica as adjacencias)
 	while (verificarAdjacencias())
@@ -370,7 +397,9 @@ function wavefront()
 		//Nada!
 	}
 	
-	//console.log(menor)
+	//Log
+	if (log['minWavefront'])
+		console.log(menor)
 	
 	//Subtitui todo mundo pela diferença com o menor valor
 	for (var i = 0; i < grid; i++)
@@ -442,10 +471,9 @@ function verificarAdjacencias()
 					matrix[i][j] = matrix[i][grid - 1] - 1;
 				}
 				
-				//Se for o menor valor encontrado
+				//Se for o menor valor encontrado salva ele
 				if (menor > matrix[i][j] && matrix[i][j] > 0)
 				{
-					//Define como este sendo o menor valor
 					menor = matrix[i][j];
 				}
 			}
@@ -478,13 +506,14 @@ function aiDecision()
 	lados = [];
 	
 	//Assimila os lados
-	if (x > 0) {lados[0] = matrix[x-1][y]} else {lados[0] = matrix[grid - 1][y]}
-	if (y > 0) {lados[1] = matrix[x][y-1]} else {lados[1] = matrix[x][grid - 1]}
-	if (x < grid - 1) {lados[2] = matrix[x+1][y]} else {lados[2] = matrix[0][y]}
-	if (y < grid - 1) {lados[3] = matrix[x][y+1]} else {lados[3] = matrix[x][0]}
+	lados[0] = (x > 0) ? matrix[x-1][y] : matrix[grid - 1][y];
+	lados[1] = (y > 0) ? matrix[x][y-1] : matrix[x][grid - 1];
+	lados[2] = (x < grid - 1) ? matrix[x+1][y] : matrix[0][y];
+	lados[3] = (y < grid - 1) ? matrix[x][y+1] : matrix[x][0];
 	
-	//Log dos lados atuais
-	//console.log(lados)
+	//Log
+	if (log['sidesHeat'])
+		console.log(lados)
 	
 	//Direção padrão
 	escolhido = 0;
@@ -512,8 +541,9 @@ function aiDecision()
 	//Envia o comando
 	if (acceptedMoves[key]())
 	{
-		//Log da tecla pressionada
-		console.log("Pressed: " + key)
+		//Log
+		if (log['iaPressedKey'])
+			console.log("Pressed: " + key)
 	}
 }
 
@@ -534,8 +564,9 @@ function step()
 	if (y < 0) {y = canvas.height/grid-1;}
 	if (y > canvas.height/grid-1) {y = 0;}
 	
-	//Log posição
-	//console.log([x,y]);
+	//Log
+	if (log['currentPosition'])
+		console.log([x,y]);
 	
 	//Limita o tamanho da cobra excluindo sempre o último array
 	while (snake.length > tamanho-1) {snake.shift();}
@@ -547,7 +578,8 @@ function step()
         if (x == snake[i].x && y == snake[i].y)
         {
 			//Log
-			//console.log('Game: end');
+			if (log['gameEnd'])
+				console.log('Game: end => score '.concat(score));
 			
             //Atualiza o score máximo
             if (best_score < score)
@@ -570,7 +602,10 @@ function step()
         atualizarContador();	//Atualiza contador
         tamanho++;				//Aumenta o tamanho da cobra
         respawn_comida();		//Respawna
-		console.log('Game: apple eaten | size '.concat(tamanho));
+		
+		//Log
+		if (log['appleEaten'])
+			console.log('Game: apple eaten | size '.concat(tamanho));
 	}
 	
 	//Se a IA estiver ativada
@@ -610,8 +645,6 @@ function draw()
 		ctx.font = "10px Arial";
 		ctx.textAlign = "center";
 		ctx.fillStyle = "#ffffff";
-		
-		//console.log(Math.max.apply(Math, matrix));
 	
 		//Passa por cada célula horizontal
 		for (var i = 0; i < matrix.length; i++)
