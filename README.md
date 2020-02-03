@@ -5,7 +5,7 @@
 Made in Javascript you just need to download and open in your browser.
 
 ## How do I play?
-You play using your arrow keys from keyboard
+You play using your <kbd>arrow</kbd> keys from keyboard
 
 ## What does the buttons?
 * The big red button makes I.A. plays
