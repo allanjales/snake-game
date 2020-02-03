@@ -119,6 +119,7 @@ body{
     width: max-content;
     margin: auto;
     box-sizing: border-box;
+	background-color: #2f2e3c;
 }
 
 .shadow{
@@ -157,6 +158,7 @@ body{
         <div id="botao-menor" class="botao" onClick="debugButton(this)" title="Debug na inteligência artificial">
             <div class="botao"></div>
         </div>
+		<p id="fps" class="texto" style="margin-left: 15px"></p>
     </div>
 </body>
 </html>
@@ -175,22 +177,35 @@ var tamanho;													//Tamanho inicial da cobra
 var score;														//Pontuação do jogador
 var comida_x, comida_y;											//Posição inicial x e y da comida
 var ultima_direcao;												//Variável para evitar bugs de teclas num intervalo muito curto de tempo
-var matrix;														//Matriz para o algoritmo de wavefront	
+var matrixHeat;													//Matriz para o algoritmo de wavefront	
 var menor;														//O menor valor encontrado na matriz acima de 0
 var game;														//Objeto que carregará o intervalo do gamespeed
+var scores = [];												//Scores salvas
 const grid = document.getElementById("canvas").width/celulas;	//Quantidade de pixels nas células da grade
 
 //Objeto para controlar quais logs são exibidos
 var log = {
-	gameStart: true,
-	gameEnd: true,
-	appleEaten: true,
+	gameStart: false,
+	gameEnd: false,
+	appleEaten: false,
 	Comands: false,
 	minWavefront: false,
 	sidesHeat: false,
 	iapressedKey: false,
 	currentPosition: false,
+	estimative: true
 }
+
+//FPS vars
+var frameTime = 0;
+var lastLoop = new Date
+var thisLoop;
+
+//Seleciona o objeto de FPS
+const fpsOut = document.getElementById('fps');
+
+//Atualiza o FPS a cada meio segundo (500 ms)
+setInterval(function() {fpsOut.innerHTML = (1000/frameTime).toFixed(0) + " blocks/s";}, 500);
 
 //Função de debug
 function toggleIAButton(button)
@@ -201,6 +216,7 @@ function toggleIAButton(button)
 	//Chama a função da luz
 	luzIndicadora();
 }
+
 //Função de debug
 function debugButton(button)
 {
@@ -362,33 +378,33 @@ function iniciarJogo()
 //Wavefront
 function wavefront()
 {
-	//Define a matriz é um array
-	matrix = [];
+	//Define que a matriz é um array
+	matrixHeat = [];
 	
 	//Passa por cada célula horizontal
 	for (var i = 0; i < grid; i++)
     {
 		//Define que o array também é um array
-		matrix[i] = [];
+		matrixHeat[i] = [];
 		
 		//Passa por cada célula vertical
 		for (var j = 0; j < grid; j++)
 		{
 			//Define como 0
-			matrix[i][j] = 0;
+			matrixHeat[i][j] = 0;
 		}
 	}
 	
 	//Dá calor a comida
-	matrix[comida_x][comida_y] = Math.round(grid*grid);
+	matrixHeat[comida_x][comida_y] = Math.round(grid*grid);
 	
 	//Menor valor encontrado na matriz acima de 0 inicialmente é o da comida
-	menor = matrix[comida_x][comida_y];
+	menor = matrixHeat[comida_x][comida_y];
 
 	//Marca a posição do corpo da cobra com -1
 	for (var i = 0; i < snake.length; i++)
 	{
-		matrix[snake[i].x][snake[i].y] = -1;
+		matrixHeat[snake[i].x][snake[i].y] = -1;
 	}
 
 	//Faz o mapa de calor do resto (verifica as adjacencias)
@@ -406,9 +422,9 @@ function wavefront()
 	{
 		for (var j = 0; j < grid; j++)
 		{
-			if (matrix[i][j] >= menor)
+			if (matrixHeat[i][j] >= menor)
 			{
-				matrix[i][j] = matrix[i][j] - menor;
+				matrixHeat[i][j] = matrixHeat[i][j] - menor;
 			}
 		}
 	}
@@ -418,7 +434,7 @@ function wavefront()
 function verificarAdjacencias()
 {
 	//Matriz antes
-	antes = JSON.stringify(matrix);
+	antes = JSON.stringify(matrixHeat);
 
 	//Passa por cada célula horizontal
 	for (var i = 0; i < grid; i++)
@@ -427,68 +443,68 @@ function verificarAdjacencias()
 		for (var j = 0; j < grid; j++)
 		{
 			//Se a célula não for parte da cobra
-			if (matrix[i][j] >= 0)
+			if (matrixHeat[i][j] >= 0)
 			{
 				//Se nas adjacencias tem alguma célula mais quente
-				if (i < grid - 1 && matrix[i+1][j] > matrix[i][j])
+				if (i < grid - 1 && matrixHeat[i+1][j] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i+1][j] - 1;
+					matrixHeat[i][j] = matrixHeat[i+1][j] - 1;
 				}
 
-				if (j < grid - 1 && matrix[i][j+1] > matrix[i][j])
+				if (j < grid - 1 && matrixHeat[i][j+1] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i][j+1] - 1;
+					matrixHeat[i][j] = matrixHeat[i][j+1] - 1;
 				}
 
-				if (i > 0 && matrix[i-1][j] > matrix[i][j])
+				if (i > 0 && matrixHeat[i-1][j] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i-1][j] - 1;
+					matrixHeat[i][j] = matrixHeat[i-1][j] - 1;
 				}
 
-				if (j > 0 && matrix[i][j-1] > matrix[i][j])
+				if (j > 0 && matrixHeat[i][j-1] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i][j-1] - 1;
+					matrixHeat[i][j] = matrixHeat[i][j-1] - 1;
 				}
 
 				//Verifica do outro lado também
-				if (i == grid - 1 && matrix[0][j] > matrix[i][j])
+				if (i == grid - 1 && matrixHeat[0][j] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[0][j] - 1;
+					matrixHeat[i][j] = matrixHeat[0][j] - 1;
 				}
 
-				if (j == grid - 1 && matrix[i][0] > matrix[i][j])
+				if (j == grid - 1 && matrixHeat[i][0] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i][0] - 1;
+					matrixHeat[i][j] = matrixHeat[i][0] - 1;
 				}
 
-				if (i == 0 && matrix[grid - 1][j] > matrix[i][j])
+				if (i == 0 && matrixHeat[grid - 1][j] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[grid - 1][j] - 1;
+					matrixHeat[i][j] = matrixHeat[grid - 1][j] - 1;
 				}
 
-				if (j == 0 && matrix[i][grid - 1] > matrix[i][j])
+				if (j == 0 && matrixHeat[i][grid - 1] > matrixHeat[i][j])
 				{
-					matrix[i][j] = matrix[i][grid - 1] - 1;
+					matrixHeat[i][j] = matrixHeat[i][grid - 1] - 1;
 				}
 				
 				//Se for o menor valor encontrado salva ele
-				if (menor > matrix[i][j] && matrix[i][j] > 0)
+				if (menor > matrixHeat[i][j] && matrixHeat[i][j] > 0)
 				{
-					menor = matrix[i][j];
+					menor = matrixHeat[i][j];
 				}
 			}
 		}
 	}
 	
 	//Retorna true se modificou alguma coisa e false se não
-	if (antes == JSON.stringify(matrix))
+	if (antes == JSON.stringify(matrixHeat))
 	{
 		return false
 	}
 	else
 	{	
 		//Se modificou, reseta o menor valor
-		menor = matrix[comida_x][comida_y];
+		menor = matrixHeat[comida_x][comida_y];
 		
 		return true
 	}
@@ -497,47 +513,94 @@ function verificarAdjacencias()
 //Função da inteligência artificial
 function aiDecision()
 {
-	//Faz um mapa de calor do ambiente para a maçã
-	wavefront();
-	
-	//Verifica qual lado tem menos calor ao redor da cobra
-	
-	//Define lados como array
-	lados = [];
-	
-	//Assimila os lados
-	lados[0] = (x > 0) ? matrix[x-1][y] : matrix[grid - 1][y];
-	lados[1] = (y > 0) ? matrix[x][y-1] : matrix[x][grid - 1];
-	lados[2] = (x < grid - 1) ? matrix[x+1][y] : matrix[0][y];
-	lados[3] = (y < grid - 1) ? matrix[x][y+1] : matrix[x][0];
-	
-	//Log
-	if (log['sidesHeat'])
-		console.log(lados)
-	
-	//Direção padrão
-	escolhido = 0;
-	
-	//Procura a direção com o maior valor
-	for (var i = 0; i < lados.length; i++)
+	//Se for true faz isso
+	if(ia === true)
 	{
-		//Se o maior valor for outra direção
-		if (lados[i] > lados[escolhido])
+		//Faz um mapa de calor do ambiente para a maçã
+		wavefront();
+
+		//Verifica qual lado tem menos calor ao redor da cobra
+
+		//Define lados como array
+		var lados = [];
+
+		//Assimila os lados
+		lados[0] = (x > 0) ? matrixHeat[x-1][y] : matrixHeat[grid - 1][y];
+		lados[1] = (y > 0) ? matrixHeat[x][y-1] : matrixHeat[x][grid - 1];
+		lados[2] = (x < grid - 1) ? matrixHeat[x+1][y] : matrixHeat[0][y];
+		lados[3] = (y < grid - 1) ? matrixHeat[x][y+1] : matrixHeat[x][0];
+
+		//Log
+		if (log['sidesHeat'])
+			console.log(lados)
+
+		//Direção padrão
+		escolhido = 0;
+
+		//Procura a direção com o maior valor
+		for (var i = 0; i < lados.length; i++)
 		{
-			//Muda a direção escolhida
-			escolhido = i;
+			//Se o maior valor for outra direção
+			if (lados[i] > lados[escolhido])
+			{
+				//Muda a direção escolhida
+				escolhido = i;
+			}
 		}
 	}
-	
+	else
+	{
+		//Se estiver na horizontal
+		if (direcao == 0 || direcao == 2)
+		{
+			//Verifica se está na posição
+			switch (y)
+			{
+				//Caso esteja no topo
+				case 0:
+					escolhido = 3;
+					break;
+				//Caso esteja no fundo
+				case grid - 1:
+					escolhido = 1;
+					break;
+				//Padrão
+				default:
+					escolhido = 1;
+					break;
+			}
+		}
+		else
+		{
+			//Verifica se está na posição
+			switch (y)
+			{
+				//Caso esteja no topo
+				case grid - 1:
+					escolhido = 0;
+					break;
+				//Caso esteja no fundo
+				case 0:
+					escolhido = 0;
+					break;
+				//Padrão
+				default:
+					escolhido = 1;
+					break;
+			}
+			
+		}
+	}
+
 	//Variável da tecla a ser pressionada
 	var key;
-	
+
 	//De acordo com o lado escolhido, envia o comando
 	if (escolhido == 0) {key = 'ArrowLeft'}
 	if (escolhido == 1) {key = 'ArrowUp'}
 	if (escolhido == 2) {key = 'ArrowRight'}
 	if (escolhido == 3) {key = 'ArrowDown'}
-	
+
 	//Envia o comando
 	if (acceptedMoves[key]())
 	{
@@ -580,12 +643,19 @@ function step()
 			//Log
 			if (log['gameEnd'])
 				console.log('Game: end => score '.concat(score));
+				
+			//Salva na variável de scores
+			scores.push(score);
 			
             //Atualiza o score máximo
             if (best_score < score)
             {
                 best_score = score;
             }
+			
+			//Log Estimative
+			if (log['estimative'])
+				console.log(scores.length.toString() + ' games: ' + media(scores).toFixed(1).toString() + ' ± ' + incerteza(scores).toFixed(1).toString() + ' points');
             
             //Reinicia jogo
             iniciarJogo();
@@ -614,6 +684,11 @@ function step()
 		//Faz ela escolher uma ação
 		aiDecision();
 	}
+		
+	//FPS JS
+	thisLoop = new Date;
+	frameTime = thisLoop - lastLoop;
+	lastLoop = thisLoop;
 }
 
 //Função draw de jogo
@@ -639,7 +714,7 @@ function draw()
 	ctx.fillRect(comida_x*grid, comida_y*grid, grid-1, grid-1)
 	
 	//Se tá definido a matriz
-	if (matrix && ia && debug)
+	if (matrixHeat && ia === true && debug)
 	{
 		//Wavefront algorithm
 		ctx.font = "10px Arial";
@@ -647,16 +722,16 @@ function draw()
 		ctx.fillStyle = "#ffffff";
 	
 		//Passa por cada célula horizontal
-		for (var i = 0; i < matrix.length; i++)
+		for (var i = 0; i < matrixHeat.length; i++)
 		{
 			//Passa por cada célula vertical
-			for (var j = 0; j < matrix[i].length; j++)
+			for (var j = 0; j < matrixHeat[i].length; j++)
 			{
 				//Define cores
-				ctx.fillStyle = "#ff" + Math.round(matrix[i][j]/matrix[comida_x][comida_y]*255).toString(16).padStart(2,0) + Math.round(matrix[i][j]/matrix[comida_x][comida_y]*255).toString(16).padStart(2,0);
+				ctx.fillStyle = "#ff" + Math.round(matrixHeat[i][j]/matrixHeat[comida_x][comida_y]*255).toString(16).padStart(2,0) + Math.round(matrixHeat[i][j]/matrixHeat[comida_x][comida_y]*255).toString(16).padStart(2,0);
 				
 				//Exibe quantidade
-				ctx.fillText(matrix[i][j], i*grid + grid/2 - 1, (j + 1)*grid - grid/4 - 2);
+				ctx.fillText(matrixHeat[i][j], i*grid + grid/2 - 1, (j + 1)*grid - grid/4 - 2);
 			}
 		}
 	}
@@ -665,20 +740,44 @@ function draw()
 //Faz a comida respwanar em algum lugar
 function respawn_comida()
 {
-	comida_x = Math.floor(Math.random()*canvas.width/grid);
-	comida_y = Math.floor(Math.random()*canvas.height/grid);
+	//Locais disponíveis para spawn
+	var disponiveis = [];
 	
-	//Passa por cada pedaço da cobra
-	for (var i = 0; i < snake.length; i++)
-    {
-        //Se spawnou na cobra
-        if (comida_x == snake[i].x && comida_y == snake[i].y)
-        {
-			//Spawna comida em outro lugar
-			respawn_comida();
-			break;
-        }
-    }
+	//Passa por cada célula horizontal
+	for (var i = 0; i < grid; i++)
+	{
+		//Passa por cada célula vertical
+		for (var j = 0; j < grid; j++)
+		{
+			//Diz se está disponivel
+			var disponivel = true;
+			
+			//Passa por cada pedaço da cobra
+			for (var k = 0; k < snake.length; k++)
+			{
+				//Se coincidiu
+				if (i == snake[k].x && j == snake[k].y)
+				{
+					//Avisa que não está disponível
+					disponivel = false;
+				}
+			}
+			
+			//Se estiver disponivel, adiciona na lista dos locais disponíveis
+			if (disponivel === true)
+				disponiveis.push({x: i, y: j})
+		}
+	}
+	
+	//Local escolhido
+	var picked = disponiveis[Math.floor(Math.random()*disponiveis.length)];
+	
+	//Seta o novo lugar da comida caso tenha lugar
+	if (picked)
+	{
+		comida_x = picked.x;
+		comida_y = picked.y;
+	}
 }
     
 function atualizarContador()
@@ -694,5 +793,43 @@ function atualizarContador()
     {
         document.getElementById("maior_pontuacao").style.visibility = "visible";
     }
+}
+
+//Função que calcula media
+function media(array)
+{
+	//Soma inicial
+	var sum = 0;
+	
+	//Somatório
+	for (var i = 0; i < array.length; i++)
+    {
+		sum += array[i];
+	}
+	
+	//Retorna o resultado
+	return sum/array.length;
+}
+
+//Função que calcula a incerteza da média
+function incerteza(array)
+{
+	//Média
+	mediavar = media(array);
+	
+	//Soma inicial
+	var sum = 0;
+	
+	//Somatório
+	for (var i = 0; i < array.length; i++)
+    {
+		sum += (array[i] - mediavar)*(array[i] - mediavar);
+	}
+	
+	//Desvio Padrão
+	desvPad = Math.sqrt(sum/(array.length-1));
+	
+	//Incerteza
+	return desvPad/Math.sqrt(array.length);
 }
 </script>
