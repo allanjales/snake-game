@@ -2,9 +2,10 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Snake Game</title>
-<meta name="author" content="Allan Jales">
-<meta name="theme-color" content="#ffffff">
+<meta name="author" content="Allan Jales https://github.com/allanjales/">
+<meta name="theme-color" content="#AEAEAE">
 
 <style>
 html{
@@ -13,7 +14,6 @@ html{
 
 body{
     margin: 0;
-    background-image: linear-gradient(to top, rgb(209, 213, 219) 50%, rgba(255,255,255,0) 100%);
 }
 
 #canvas{
@@ -76,7 +76,7 @@ body{
 
 .botao{
     position: relative;
-    left: 75%;
+    left: calc(100% - 80px);
     height: 80px;
     width: 80px;
     background-color: #DD0000;
@@ -88,7 +88,7 @@ body{
 #botao-menor{
 	width: 10px;
 	height: 10px;
-	left: calc(75% + 70px);
+	left: calc(100% - 10px);
 	background-color: #888888;
 	box-shadow: 2px 2px 10px 2px rgba(0,0,0,0.1), inset -2px -2px 10px rgba(0,0,0,0.1);
 }
@@ -131,9 +131,43 @@ body{
 	margin: 4px;
 }
 
+#fundo{
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	z-index: -100;
+    background-image: linear-gradient(to top, rgb(209, 213, 219) 50%, rgba(255,255,255,0) 100%);
+}
+
+#button-holder{
+    position: relative;
+    width: 408px;
+    margin: auto;
+    box-sizing: border-box;
+}
+
+@media (max-width: 520px) {
+	#game{
+		width: calc(100% - 20px);
+		height: calc(100vh - 20px);
+		border-radius: 0;
+		margin-top: 0;
+		box-shadow: none;
+		}
+	
+	#screen, #button-holder{
+		width: 80%;
+	}
+	
+	#canvas{
+		width: calc(100% - 8px);
+	}
+}
+
 </style>
 </head>
 <body>
+	<div id="fundo"></div>
     <div id="game">
         <h1 id="title" class="texto">Snake Game</h1>
         <div class="pontuacao">
@@ -151,13 +185,15 @@ body{
             <p class="texto">Maior pontuação:</p>
             <p id="best_score" class="texto">0</p>
         </div>
-        <div class="botao" onClick="toggleIAButton(this)" title="Inteligência Artificial">
-            <div class="botao"></div>
-			<div class="texto">IA</div>
-        </div>
-        <div id="botao-menor" class="botao" onClick="debugButton(this)" title="Debug na inteligência artificial">
-            <div class="botao"></div>
-        </div>
+		<div id="button-holder">
+			<div class="botao" onClick="toggleIAButton(this)" title="Inteligência Artificial">
+				<div class="botao"></div>
+				<div class="texto">IA</div>
+			</div>
+			<div id="botao-menor" class="botao" onClick="debugButton(this)" title="Debug na inteligência artificial">
+				<div class="botao"></div>
+			</div>
+		</div>
 		<p id="fps" class="texto" style="margin-left: 15px"></p>
     </div>
 </body>
@@ -830,6 +866,6 @@ function incerteza(array)
 	desvPad = Math.sqrt(sum/(array.length-1));
 	
 	//Incerteza
-	return desvPad/Math.sqrt(array.length);
+	return desvPad;
 }
 </script>
